@@ -36,7 +36,3 @@ The dataset should contain customer information with columns like:
 1. Place it in `data/raw/bank_churn.csv`
 2. Run the notebooks in order (starting with `01_data_exploration.ipynb`)
 3. The preprocessing pipeline will clean and prepare the data automatically
-
-## Alternative: Use Sample Data
-
-If you don't have access to the dataset yet, we can generate synthetic data for testing the pipeline.
