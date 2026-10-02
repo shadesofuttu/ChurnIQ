@@ -63,7 +63,38 @@ logs/
 # Reports (commit templates, not generated ones)
 reports/*.pdf
 reports/*.docx
+reports/analysis/
+
+# Figures (generated visualizations)
+figures/eda/*.html
+figures/eda/*.png
+figures/model/*.html
+figures/model/*.png
+figures/segmentation/*.html
+figures/segmentation/*.png
+
+# Processed data
+data/processed/*.csv
+data/segments/*.csv
+
+# Streamlit
+.streamlit/
 
 # Cache
 .cache/
-*.cache"
+*.cache
+
+# Pytest
+.pytest_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# MyPy
+.mypy_cache/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp"
