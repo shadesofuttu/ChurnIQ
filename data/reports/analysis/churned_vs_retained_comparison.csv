@@ -1,0 +1,9 @@
+,Churned_Avg,Retained_Avg,Difference,Difference_Pct
+CreditScore,649.3,648.79,0.51,0.08
+Age,39.73,39.07,0.65,1.68
+Tenure,4.9,5.46,-0.56,-10.22
+Balance,52773.83,57149.14,-4375.31,-7.66
+NumOfProducts,1.58,1.76,-0.19,-10.62
+HasCrCard,0.7,0.7,-0.0,-0.51
+IsActiveMember,0.47,0.66,-0.18,-27.93
+EstimatedSalary,104693.33,106719.81,-2026.48,-1.9

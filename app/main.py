@@ -1,51 +1,34 @@
-"""Streamlit Dashboard for Customer Churn Analytics"""
+"""ChurnIQ - Customer Segmentation & Churn Pattern Analytics Dashboard"""
 
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
 from pathlib import Path
 import sys
 
-# Add project root to path
 project_root = Path(__file__).resolve().parent.parent
 sys.path.append(str(project_root))
 
-from config.settings import DATA_PROCESSED, APP_TITLE, APP_LAYOUT
+from config.settings import DATA_PROCESSED, APP_TITLE, APP_LAYOUT, MODELS_DIR
 from src.data.loader import load_processed_data
 from src.analysis.churn_analytics import ChurnAnalytics
 from src.visualization.plotting import ChurnVisualizer
+from src.models.segmentation import CustomerSegmentation
+from src.utils.prediction import load_churn_predictor, predict_single_customer, format_feature_name
+from src.models.churn_model import ChurnPredictor
 
-# Page configuration
 st.set_page_config(
-    page_title=APP_TITLE,
+    page_title="ChurnIQ Dashboard",
     page_icon="📊",
-    layout=APP_LAYOUT,
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1f77b4;
-        text-align: center;
-        padding: 1rem 0;
-    }
-    .metric-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #1f77b4;
-    }
-    .insight-box {
-        background-color: #fff3cd;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #ffc107;
-        margin: 1rem 0;
-    }
+    .main-header { font-size:2.2rem; font-weight:bold; color:#1f77b4; text-align:center; padding:0.8rem 0; }
+    .insight-box { background:#fff9e6; padding:0.8rem 1rem; border-radius:0.4rem; border-left:4px solid #f0a500; margin:0.5rem 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -56,15 +39,15 @@ def load_data():
         df = load_processed_data()
         return df
     except FileNotFoundError:
-        st.error("Data file not found. Please ensure data is processed first.")
+        st.error("⚠️ Data file not found. Please run: `python scripts/train_models.py`")
         return None
 
 def main():
     """Main dashboard application."""
     
     # Header
-    st.markdown('<div class="main-header">🏦 Customer Segmentation & Churn Analytics</div>', unsafe_allow_html=True)
-    st.markdown("### European Banking - Customer Retention Intelligence Dashboard")
+    st.markdown('<div class="main-header">🏦 ChurnIQ Dashboard</div>', unsafe_allow_html=True)
+    st.markdown("### Customer Segmentation & Churn Pattern Analytics in European Banking")
     st.markdown("---")
     
     # Load data
@@ -73,6 +56,10 @@ def main():
     
     if df is None:
         st.stop()
+    
+    # Store in session state
+    if 'data' not in st.session_state:
+        st.session_state['data'] = df
     
     # Initialize analytics
     analytics = ChurnAnalytics(df)

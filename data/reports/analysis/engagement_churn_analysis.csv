@@ -1,0 +1,9 @@
+Engagement_Type,Total,Churned,Churn_Rate,Avg_Products
+Inactive,4878,4123,84.52,1.61
+Active,5122,3688,72.0,1.62
+No Credit Card,2979,2333,78.31,1.61
+Has Credit Card,7021,5478,78.02,1.62
+1 Product(s),5065,4199,82.9,1.0
+2 Product(s),3910,2877,73.58,2.0
+3 Product(s),802,573,71.45,3.0
+4 Product(s),223,162,72.65,4.0

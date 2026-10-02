@@ -12,7 +12,8 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     classification_report, confusion_matrix, roc_auc_score,
-    roc_curve, precision_recall_curve, f1_score, accuracy_score
+    roc_curve, precision_recall_curve, f1_score, accuracy_score,
+    precision_score, recall_score
 )
 from imblearn.over_sampling import SMOTE
 import sys
@@ -93,33 +94,38 @@ class ChurnPredictor:
             use_smote: Whether to use SMOTE for class balancing
             tune_hyperparameters: Whether to perform hyperparameter tuning
         """
-        # Scale features
+        # Store feature columns if not already set
+        if self.feature_columns is None:
+            self.feature_columns = X_train.columns.tolist()
+        
+        # Scale features FIRST (fit on original training data)
         X_train_scaled = self.scaler.fit_transform(X_train)
         
-        # Handle class imbalance with SMOTE
-        if use_smote:
-            smote = SMOTE(random_state=RANDOM_STATE)
-            X_train_scaled, y_train = smote.fit_resample(X_train_scaled, y_train)
-            print(f"Applied SMOTE - New training size: {len(y_train)}")
-        
-        # Hyperparameter tuning
-        if tune_hyperparameters:
-            print("Tuning hyperparameters...")
-            self.model = self._tune_hyperparameters(X_train_scaled, y_train)
-        
-        # Train model
-        print(f"Training {self.model_type} model...")
-        self.model.fit(X_train_scaled, y_train)
-        
-        # Cross-validation score
+        # IMPORTANT: Cross-validation BEFORE SMOTE to avoid data leakage
+        # CV on original (imbalanced) training data
+        print(f"Running cross-validation on original training data...")
         cv_scores = cross_val_score(
             self.model, X_train_scaled, y_train, 
             cv=CV_FOLDS, scoring='roc_auc'
         )
         self.metrics['cv_auc_mean'] = cv_scores.mean()
         self.metrics['cv_auc_std'] = cv_scores.std()
+        print(f"Cross-validation AUC (pre-SMOTE): {cv_scores.mean():.4f} (+/- {cv_scores.std():.4f})")
         
-        print(f"Cross-validation AUC: {cv_scores.mean():.4f} (+/- {cv_scores.std():.4f})")
+        # NOW apply SMOTE only for final training
+        if use_smote:
+            smote = SMOTE(random_state=RANDOM_STATE)
+            X_train_scaled, y_train = smote.fit_resample(X_train_scaled, y_train)
+            print(f"Applied SMOTE - New training size: {len(y_train)}")
+        
+        # Hyperparameter tuning (if requested)
+        if tune_hyperparameters:
+            print("Tuning hyperparameters...")
+            self.model = self._tune_hyperparameters(X_train_scaled, y_train)
+        
+        # Train final model
+        print(f"Training {self.model_type} model...")
+        self.model.fit(X_train_scaled, y_train)
     
     def _tune_hyperparameters(self, X_train, y_train):
         """Perform grid search for hyperparameter tuning."""
@@ -152,7 +158,7 @@ class ChurnPredictor:
     
     def evaluate(self, X_test: pd.DataFrame, y_test: pd.Series) -> Dict[str, Any]:
         """
-        Evaluate model performance.
+        Evaluate model performance with comprehensive metrics.
         
         Args:
             X_test: Test features
@@ -168,19 +174,29 @@ class ChurnPredictor:
         y_pred = self.model.predict(X_test_scaled)
         y_pred_proba = self.model.predict_proba(X_test_scaled)[:, 1]
         
+        # Calculate ROC curve data
+        fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+        
         # Calculate metrics
         self.metrics.update({
             'accuracy': accuracy_score(y_test, y_pred),
-            'f1_score': f1_score(y_test, y_pred),
+            'precision': precision_score(y_test, y_pred, zero_division=0),
+            'recall': recall_score(y_test, y_pred, zero_division=0),
+            'f1_score': f1_score(y_test, y_pred, zero_division=0),
             'roc_auc': roc_auc_score(y_test, y_pred_proba),
             'confusion_matrix': confusion_matrix(y_test, y_pred),
-            'classification_report': classification_report(y_test, y_pred, output_dict=True)
+            'classification_report': classification_report(y_test, y_pred, output_dict=True, zero_division=0),
+            'roc_curve': {'fpr': fpr, 'tpr': tpr, 'thresholds': thresholds},
+            'y_pred': y_pred,
+            'y_pred_proba': y_pred_proba
         })
         
         print("\n=== Model Evaluation ===")
-        print(f"Accuracy: {self.metrics['accuracy']:.4f}")
-        print(f"F1 Score: {self.metrics['f1_score']:.4f}")
-        print(f"ROC AUC: {self.metrics['roc_auc']:.4f}")
+        print(f"Accuracy:  {self.metrics['accuracy']:.4f}")
+        print(f"Precision: {self.metrics['precision']:.4f}")
+        print(f"Recall:    {self.metrics['recall']:.4f}")
+        print(f"F1 Score:  {self.metrics['f1_score']:.4f}")
+        print(f"ROC AUC:   {self.metrics['roc_auc']:.4f}")
         print("\nConfusion Matrix:")
         print(self.metrics['confusion_matrix'])
         
@@ -233,6 +249,13 @@ class ChurnPredictor:
         
         # Create directory if it doesn't exist
         model_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Validate feature_columns before saving
+        if self.feature_columns is None:
+            raise ValueError("feature_columns is None. Ensure prepare_features() or train() is called before save_model().")
+        
+        if not isinstance(self.feature_columns, (list, tuple)):
+            raise TypeError(f"feature_columns must be a list or tuple, got {type(self.feature_columns)}")
         
         # Save model and scaler
         joblib.dump(self.model, model_path)
@@ -289,16 +312,19 @@ def compare_models(X_train, y_train, X_test, y_test) -> pd.DataFrame:
         print(f"{'='*50}")
         
         predictor = ChurnPredictor(model_type=model_type)
+        # Ensure feature columns are set from X_train
+        predictor.feature_columns = X_train.columns.tolist()
         predictor.train(X_train, y_train, use_smote=True)
         metrics = predictor.evaluate(X_test, y_test)
         
         results.append({
             'Model': model_type,
             'Accuracy': metrics['accuracy'],
+            'Precision': metrics['precision'],
+            'Recall': metrics['recall'],
             'F1 Score': metrics['f1_score'],
             'ROC AUC': metrics['roc_auc'],
-            'CV AUC Mean': metrics['cv_auc_mean'],
-            'CV AUC Std': metrics['cv_auc_std']
+            'CV AUC': metrics['cv_auc_mean']
         })
     
     comparison_df = pd.DataFrame(results)

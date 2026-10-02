@@ -150,7 +150,7 @@ class CustomerSegmentation:
     
     def _name_segments(self, profiles: pd.DataFrame) -> Dict[int, str]:
         """
-        Assign meaningful names to segments based on characteristics.
+        Assign meaningful names to segments based on actual characteristics.
         
         Args:
             profiles: Segment profiles DataFrame
@@ -160,29 +160,100 @@ class CustomerSegmentation:
         """
         segment_names = {}
         
-        # Extract key metrics
+        # Extract key metrics for all segments
         avg_balance = profiles[('Balance', 'mean')]
+        avg_age = profiles[('Age', 'mean')]
+        avg_tenure = profiles[('Tenure', 'mean')]
         avg_products = profiles[('NumOfProducts', 'mean')]
         avg_active = profiles[('IsActiveMember', 'mean')]
-        churn_rate = profiles[('Exited', 'mean')] if ('Exited', 'mean') in profiles.columns else None
+        avg_credit = profiles[('CreditScore', 'mean')]
+        churn_rate = profiles[('Exited', 'mean')] if ('Exited', 'mean') in profiles.columns else pd.Series([0]*len(profiles))
         
+        # Calculate percentiles for comparison
+        balance_high = avg_balance.quantile(0.75)
+        balance_low = avg_balance.quantile(0.25)
+        products_high = avg_products.quantile(0.75)
+        active_high = avg_active.quantile(0.75)
+        active_low = avg_active.quantile(0.25)
+        churn_high = churn_rate.quantile(0.75)
+        tenure_high = avg_tenure.quantile(0.75)
+        tenure_low = avg_tenure.quantile(0.25)
+        
+        # Name each segment based on multiple characteristics
         for segment in profiles.index:
             balance = avg_balance[segment]
             products = avg_products[segment]
             active = avg_active[segment]
-            churn = churn_rate[segment] if churn_rate is not None else 0
+            churn = churn_rate[segment]
+            tenure = avg_tenure[segment]
+            age = avg_age[segment]
             
-            # Naming logic
-            if balance > avg_balance.median() and products >= 2 and active > 0.7:
-                name = "High-Value Engaged"
-            elif balance > avg_balance.median() and active < 0.5:
-                name = "High-Value At-Risk"
-            elif balance <= avg_balance.quantile(0.25) and products == 1:
-                name = "Low-Engagement"
-            elif active > 0.7 and products >= 2:
-                name = "Loyal Multi-Product"
+            # Build name components
+            value_tier = ""
+            engagement_tier = ""
+            risk_tier = ""
+            
+            # Value classification
+            if balance >= balance_high:
+                value_tier = "Premium"
+            elif balance <= balance_low:
+                value_tier = "Entry"
             else:
-                name = f"Standard Segment {segment}"
+                value_tier = "Standard"
+            
+            # Engagement classification
+            if active >= active_high and products >= products_high:
+                engagement_tier = "Highly Engaged"
+            elif active >= active_high:
+                engagement_tier = "Active"
+            elif active <= active_low:
+                engagement_tier = "Dormant"
+            else:
+                engagement_tier = "Moderate"
+            
+            # Risk classification based on churn
+            if churn >= churn_high:
+                risk_tier = "High Risk"
+            else:
+                risk_tier = "Stable"
+            
+            # Tenure modifier
+            if tenure >= tenure_high:
+                tenure_mod = "Loyal"
+            elif tenure <= tenure_low:
+                tenure_mod = "New"
+            else:
+                tenure_mod = ""
+            
+            # Construct meaningful name
+            # Priority: Value + Engagement + Risk/Tenure
+            if churn >= churn_high:
+                # High risk segments - emphasize risk
+                if balance >= balance_high:
+                    name = f"{value_tier} {risk_tier}"
+                else:
+                    name = f"{engagement_tier} {risk_tier}"
+            elif balance >= balance_high and active >= active_high:
+                # Best segments
+                name = f"{value_tier} {engagement_tier}"
+            elif balance >= balance_high and active < active_high:
+                # High value but low engagement
+                name = f"{value_tier} Disengaged"
+            elif active >= active_high and products >= 2:
+                # High engagement regardless of balance
+                if tenure >= tenure_high:
+                    name = f"{tenure_mod} Multi-Product"
+                else:
+                    name = f"{engagement_tier} Multi-Product"
+            elif active <= active_low and products <= 1:
+                # Low engagement, single product
+                name = f"{engagement_tier} Single-Product"
+            else:
+                # Standard/mixed characteristics
+                if tenure_mod:
+                    name = f"{tenure_mod} {value_tier}"
+                else:
+                    name = f"{value_tier} {engagement_tier}"
             
             segment_names[segment] = name
         
@@ -252,6 +323,65 @@ class CustomerSegmentation:
         print(geo_segment)
         
         return geo_segment
+    
+    def get_detailed_segment_profiles(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Get detailed profile for each segment with all key metrics.
+        
+        Args:
+            df: DataFrame with segment assignments
+        
+        Returns:
+            DataFrame with detailed segment profiles
+        """
+        if 'Segment_Name' not in df.columns:
+            return None
+        
+        profile_features = [
+            'CreditScore', 'Age', 'Tenure', 'Balance', 
+            'NumOfProducts', 'IsActiveMember', 'HasCrCard',
+            'EstimatedSalary'
+        ]
+        
+        if 'Exited' in df.columns:
+            profile_features.append('Exited')
+        
+        available_features = [f for f in profile_features if f in df.columns]
+        
+        # Calculate detailed statistics
+        profiles = df.groupby('Segment_Name')[available_features].agg(['mean', 'median']).round(2)
+        
+        # Add segment size and churn info
+        segment_info = df.groupby('Segment_Name').agg({
+            'Segment': 'count',
+            'Exited': ['sum', 'mean'] if 'Exited' in df.columns else 'count'
+        })
+        
+        if 'Exited' in df.columns:
+            segment_info.columns = ['Size', 'Churned', 'Churn_Rate']
+            segment_info['Churn_Rate'] = (segment_info['Churn_Rate'] * 100).round(2)
+        else:
+            segment_info.columns = ['Size']
+        
+        # Combine into readable format
+        detailed = pd.DataFrame({
+            'Segment': segment_info.index,
+            'Size': segment_info['Size'].values,
+            'Avg_Balance': profiles[('Balance', 'mean')].values,
+            'Avg_Age': profiles[('Age', 'mean')].values,
+            'Avg_Tenure': profiles[('Tenure', 'mean')].values,
+            'Avg_CreditScore': profiles[('CreditScore', 'mean')].values,
+            'Avg_Products': profiles[('NumOfProducts', 'mean')].values,
+            'Active_Rate': (profiles[('IsActiveMember', 'mean')].values * 100).round(2)
+        })
+        
+        if 'Exited' in df.columns:
+            detailed['Churn_Rate'] = segment_info['Churn_Rate'].values
+            detailed['Churned_Count'] = segment_info['Churned'].values.astype(int)
+        
+        detailed = detailed.set_index('Segment')
+        
+        return detailed
     
     def get_segment_recommendations(self, df: pd.DataFrame) -> Dict[str, List[str]]:
         """

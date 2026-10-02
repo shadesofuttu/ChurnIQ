@@ -96,6 +96,10 @@ def main():
     print("\nComparing model performance...")
     comparison = compare_models(X_train, y_train, X_test, y_test)
     
+    # Save comparison results
+    comparison.to_csv(MODELS_DIR / 'model_comparison.csv', index=False)
+    print("Model comparison saved")
+    
     # Train best model
     best_model_type = comparison.loc[comparison['ROC AUC'].idxmax(), 'Model']
     print(f"\nBest model: {best_model_type}")

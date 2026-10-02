@@ -94,7 +94,7 @@ class ChurnAnalytics:
         age_labels = ['18-30', '31-40', '41-50', '51-60', '60+']
         self.df['Age_Group'] = pd.cut(self.df['Age'], bins=age_bins, labels=age_labels)
         
-        results['age'] = self.df.groupby('Age_Group').agg({
+        results['age'] = self.df.groupby('Age_Group', observed=False).agg({
             'Exited': ['sum', 'mean', 'count']
         }).round(4)
         results['age'].columns = ['Churned', 'Churn_Rate', 'Total']
@@ -112,7 +112,7 @@ class ChurnAnalytics:
         tenure_labels = ['0-2 yrs', '3-5 yrs', '6-7 yrs', '8+ yrs']
         self.df['Tenure_Group'] = pd.cut(self.df['Tenure'], bins=tenure_bins, labels=tenure_labels)
         
-        results['tenure'] = self.df.groupby('Tenure_Group').agg({
+        results['tenure'] = self.df.groupby('Tenure_Group', observed=False).agg({
             'Exited': ['sum', 'mean', 'count']
         }).round(4)
         results['tenure'].columns = ['Churned', 'Churn_Rate', 'Total']

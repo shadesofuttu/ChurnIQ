@@ -141,7 +141,7 @@ class ChurnVisualizer:
         self.df['Age_Group'] = pd.cut(self.df['Age'], bins=age_bins, labels=age_labels)
         
         # Calculate churn rates
-        age_churn = self.df.groupby('Age_Group')['Exited'].mean() * 100
+        age_churn = self.df.groupby('Age_Group', observed=False)['Exited'].mean() * 100
         gender_churn = self.df.groupby('Gender')['Exited'].mean() * 100
         
         fig = make_subplots(
