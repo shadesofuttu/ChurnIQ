@@ -37,9 +37,11 @@ data/raw/*.json
 *.parquet
 
 # Models (add specific models if needed)
-models/*.pkl
 models/*.h5
-models/*.joblib
+# Allow essential pkl files for deployment
+!models/churn_model_*.pkl
+!models/scaler.pkl
+!models/segmentation_model.pkl
 
 # IDE
 .vscode/
@@ -74,11 +76,13 @@ figures/segmentation/*.html
 figures/segmentation/*.png
 
 # Processed data
-data/processed/*.csv
+# Allow cleaned_data.csv for deployment
+!data/processed/cleaned_data.csv
 data/segments/*.csv
 
 # Streamlit
-.streamlit/
+# Allow config for deployment
+!.streamlit/config.toml
 
 # Cache
 .cache/
