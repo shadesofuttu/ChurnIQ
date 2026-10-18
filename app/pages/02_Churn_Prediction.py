@@ -19,11 +19,22 @@ st.markdown("---")
 # Load predictor
 if 'predictor' not in st.session_state:
     with st.spinner("Loading prediction model..."):
-        predictor = load_churn_predictor('gradient_boosting')
-        if predictor is None:
-            st.error("Failed to load prediction model. Please ensure models are trained.")
+        try:
+            predictor = load_churn_predictor('gradient_boosting')
+            if predictor is None:
+                st.error("Failed to load prediction model. Please ensure models are trained.")
+                st.info("Run: `python scripts/train_models.py` to train the models")
+                st.stop()
+            st.session_state['predictor'] = predictor
+        except FileNotFoundError as e:
+            st.error(f"Model files not found: {e}")
+            st.info("Make sure the models/ directory contains the trained model files.")
             st.stop()
-        st.session_state['predictor'] = predictor
+        except Exception as e:
+            st.error(f"Error loading model: {e}")
+            import traceback
+            st.code(traceback.format_exc())
+            st.stop()
 
 predictor = st.session_state['predictor']
 

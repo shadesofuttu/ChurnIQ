@@ -27,8 +27,14 @@ if 'predictor' not in st.session_state:
         try:
             predictor.load_model()
             st.session_state['predictor'] = predictor
-        except:
-            st.error("Model not found. Please train models first using: python scripts/train_models.py")
+        except FileNotFoundError as e:
+            st.error(f"Model files not found: {e}")
+            st.info("Make sure the models/ directory contains: churn_model_gradient_boosting.pkl, scaler.pkl, and feature_columns.txt")
+            st.stop()
+        except Exception as e:
+            st.error(f"Error loading model: {e}")
+            import traceback
+            st.code(traceback.format_exc())
             st.stop()
 
 predictor = st.session_state['predictor']
