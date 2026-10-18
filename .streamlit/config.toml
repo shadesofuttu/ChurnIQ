@@ -17,8 +17,6 @@ serverAddress = "localhost"
 
 [runner]
 magicEnabled = true
-installTracer = false
-fixMatplotlib = true
 
 [logger]
 level = "info"
