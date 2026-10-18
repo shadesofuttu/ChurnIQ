@@ -1,3 +1,3 @@
 Customer_Type,Total_Customers,Churned,Churn_Rate,Avg_Balance,Avg_Products,Revenue_at_Risk
-High-Value,1743,1315,75.44,155557.53,1.62,657500
-Regular-Value,8257,6496,78.67,32236.78,1.62,3248000
+High-Value,345,266,77.1,155163.08,1.66,133000
+Regular-Value,1719,1321,76.85,32489.43,1.6,660500
